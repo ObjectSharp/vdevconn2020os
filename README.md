@@ -13,6 +13,10 @@ to cover over the next 40-50 minutes.
 1. Serving up static content, so that we can show a simple UI to consume our functions
 1. Using SignalR to report back status in real-time
 
-# David Judd - Managing Pricipal and App Dev Practice Lead
-# ObjectSharp
-# devsummit@objectsharp.com
+---
+
+**David Judd - Managing Pricipal and App Dev Practice Lead**
+
+**ObjectSharp**
+
+devsummit@objectsharp.com
