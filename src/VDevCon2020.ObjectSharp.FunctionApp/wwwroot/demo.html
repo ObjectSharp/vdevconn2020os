@@ -1,0 +1,161 @@
+<html>
+
+<head>
+    <title>Serverless Chat</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/css/bootstrap.min.css">
+    <script>
+        window.apiBaseUrl = "__API_URL__";
+    </script>
+    <style>
+    </style>
+</head>
+
+<body>
+
+    <div id="app" class="container">
+
+        <h3>Microsoft Virtual Dev Conference 2020</h3>
+        <h4>Using Durable Functions and SignalR for background processing</h4>
+        <hr />
+
+        <div class="row" v-if="!ready">
+            <div class="col-sm">
+                <div>Loading...</div>
+            </div>
+        </div>
+        <div v-if="ready">
+            <div class="row" v-for="job in jobs" v-bind:key="job.Id">
+                <div class="col-sm">
+                    <div class="row">
+                        <div class="col-11">
+                            <div class="progress">
+                                <div class="progress-bar" role="progressbar" v-bind:class="job.Progress | progressBarClass" v-bind:style="{ width: job.Progress + '%' }" v-bind:aria-valuenow="job.Progress" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <div class="row">
+                                <div class="col-sm">
+                                    <span><strong>{{job.Name}}</strong></span>
+                                </div>
+                                <div class="col-sm">
+                                    <span class="text-center">{{job.CompletedTaskCount}} of {{job.TaskCount}}</span>
+                                </div>
+                                <div class="col-sm">
+                                    <span class="text-center">{{job.Throughput}} tasks / sec</span>
+                                </div>
+                                <div class="col-sm">
+                                    <span class="text-muted text-right">{{job.Id}}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-1">
+                            <button type="button" class="btn btn-secondary" v-bind:class="job.Progress | deleteButton" v-on:click="deleteJob(job.Id, $event)">Delete</button>
+                        </div>
+                    </div>
+                    <hr />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.11/dist/vue.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@aspnet/signalr@1.1.4/dist/browser/signalr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@0.19.2/dist/axios.min.js"></script>
+
+    <script>
+        const data = {
+            cache: {},
+            jobs: [],
+            ready: false
+        };
+        const app = new Vue({
+            el: "#app",
+            data: data,
+            methods: {
+                deleteJob: function (jobId, e) {
+                    if (e) e.preventDefault();
+                    axios.delete(`${apiBaseUrl}/api/jobs/` + jobId, null, getAxiosConfig())
+                        .then(resp => {
+                            var pos = data.jobs.map(function (e) { return e.Id; }).indexOf(jobId);
+                            data.jobs.splice(pos, 1);
+                            console.log("deleted job " + jobId);
+                        });
+                }
+            },
+            filters: {
+                progressBarClass: function (value) {
+                    switch (value) {
+                        case 100: return "bg-success";
+                        default: return "bg-primary";
+                    }
+                },
+                deleteButton: function (value) {
+                    switch (value) {
+                        case 100: return "";
+                        default: return "disabled";
+                    }
+                }
+            }
+        });
+        const apiBaseUrl = window.apiBaseUrl;
+
+        getConnectionInfo().then(info => {
+            // make compatible with old and new SignalRConnectionInfo
+            info.accessToken = info.accessToken || info.accessKey;
+            info.url = info.url || info.endpoint;
+            const options = {
+                accessTokenFactory: () => info.accessToken
+            };
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl(info.url, options)
+                .configureLogging(signalR.LogLevel.Information)
+                .build();
+            connection.on("status-update", updateStatus);
+            connection.onclose(() => console.log("disconnected"));
+            console.log("connecting...");
+            connection.start()
+                .then(() => {
+                    console.log("connected!");
+                    getJobs();
+                })
+                .catch(console.error);
+        }).catch(alert);
+        function getAxiosConfig() {
+            const config = {
+                headers: {}
+            };
+            return config;
+        }
+        function getConnectionInfo() {
+            return axios.post(`${apiBaseUrl}/api/signalr/connect`, null, getAxiosConfig())
+                .then(resp => {
+                    console.log(resp.data);
+                    return resp.data;
+                });
+        }
+        function getJobs() {
+            console.log("loading jobs...");
+            return axios.get(`${apiBaseUrl}/api/jobs`, null, getAxiosConfig())
+                .then(resp => {
+                    resp.data.forEach(function (durableTask) {
+                        var job = durableTask.customStatus ?? durableTask.output;
+                        data.jobs.push(job);
+                        data.cache[job.Id] = job;
+                    });
+                    data.ready = true;
+                    console.log("loaded " + resp.data.length + " jobs");
+                });
+        }
+        function updateStatus(status) {
+            if (data.ready) {
+                var job = data.cache[status.Id];
+                if (job != null) {
+                    Object.assign(job, status);
+                } else {
+                    data.cache[status.Id] = status;
+                    data.jobs.unshift(status);
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

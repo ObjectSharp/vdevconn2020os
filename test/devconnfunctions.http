@@ -1,0 +1,37 @@
+###
+GET http://localhost:7071/api/health
+
+###
+GET http://localhost:7071/api/jobs
+
+###
+GET http://localhost:7071/api/jobs/89e9b7d06e2b42b5867e1b27b131276e
+
+###
+POST http://localhost:7071/api/jobs
+Content-Type: application/json
+
+{
+    "name": "background-job-{{$randomInt 10000 99999}}",
+    "taskCount": 200,
+    "batchSize": 0,
+    "minTaskLength": 10,
+    "maxTaskLength": 100
+}
+
+###
+POST http://localhost:7071/api/signalr/send
+Content-Type: application/json
+
+{
+    "message": "Hello-{{$guid}}"
+}
+
+###
+GET http://localhost:7071/api/serve/hello.html
+
+
+###
+### Caution
+###
+DELETE http://localhost:7071/api/jobs/b3f8b8bb6cc04ef6a9a4f2e03791bac8
